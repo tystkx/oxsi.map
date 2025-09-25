@@ -5,6 +5,7 @@ const app = {
     friends: [],
     isSidebarOpen: false,
     isFriendsOpen: false,
+    tempLocation: null,
     
     // Инициализация приложения после входа
     initApp: function() {
@@ -14,25 +15,59 @@ const app = {
         // Обновляем информацию о пользователе
         document.getElementById('user-name').textContent = this.currentUser.name;
         document.getElementById('user-avatar').textContent = this.currentUser.name.charAt(0);
+        this.updateUserStatus(this.currentUser.status);
         
         // Инициализируем карту
         mapModule.initMap();
         
-        // Загружаем друзей
-        this.loadFriends();
+        // Загружаем данные пользователя
+        this.loadUserData();
     },
     
-    // Загрузка друзей
-    loadFriends: function() {
-        const savedFriends = localStorage.getItem('friends');
-        if (savedFriends) {
-            this.friends = JSON.parse(savedFriends);
+    // Загрузка данных пользователя
+    loadUserData: function() {
+        try {
+            // Загружаем друзей
+            this.friends = database.getFriends(this.currentUser.id);
             this.renderFriends();
-        } else {
-            // Начинаем с пустого списка друзей
-            this.friends = [];
-            localStorage.setItem('friends', JSON.stringify(this.friends));
-            this.renderFriends();
+            
+            // Загружаем метку пользователя
+            const userLocation = database.getLocation(this.currentUser.id);
+            if (userLocation) {
+                this.displayUserLocation(userLocation);
+            }
+            
+            // Загружаем и отображаем метки друзей
+            const friendsLocations = database.getFriendsLocations(this.currentUser.id);
+            mapModule.showFriendsLocations(friendsLocations);
+            
+        } catch (error) {
+            console.error('Ошибка загрузки данных:', error);
+        }
+    },
+    
+    // Отображение метки пользователя
+    displayUserLocation: function(location) {
+        document.getElementById('current-location').textContent = 
+            `Широта: ${location.lat.toFixed(4)}, Долгота: ${location.lng.toFixed(4)}`;
+        document.getElementById('location-info').textContent = 'Местоположение сохранено';
+        document.getElementById('clear-location-btn').style.display = 'block';
+        
+        mapModule.saveUserLocation(location);
+    },
+    
+    // Обновление статуса пользователя
+    updateUserStatus: function(status) {
+        const indicator = document.getElementById('user-status-indicator');
+        const text = document.getElementById('user-status-text');
+        
+        indicator.className = 'status-indicator ' + status;
+        text.textContent = mapModule.getStatusText(status);
+        
+        // Обновляем статус в текущем пользователе
+        if (this.currentUser) {
+            this.currentUser.status = status;
+            // Здесь можно сохранить в базу, если нужно
         }
     },
     
@@ -49,17 +84,24 @@ const app = {
         this.friends.forEach(friend => {
             const friendItem = document.createElement('div');
             friendItem.className = 'friend-item';
+            
+            const friendLocation = database.getLocation(friend.id);
+            const hasLocation = friendLocation && friendLocation.visibility === 'all';
+            
             friendItem.innerHTML = `
                 <div class="friend-avatar">${friend.name.charAt(0)}</div>
                 <div class="friend-info">
                     <h4>${friend.name}</h4>
-                    <p>${mapModule.getStatusText(friend.status)}</p>
+                    <p>${mapModule.getStatusText(friend.status)} ${hasLocation ? '📍' : ''}</p>
                 </div>
             `;
+            
             friendItem.addEventListener('click', () => {
-                mapModule.showFriendLocation(friend);
+                const location = database.getLocation(friend.id);
+                mapModule.showFriendLocation(friend, location);
                 this.closeFriends();
             });
+            
             friendsList.appendChild(friendItem);
         });
     },
@@ -70,7 +112,6 @@ const app = {
         this.isSidebarOpen = !this.isSidebarOpen;
         sidebar.classList.toggle('active', this.isSidebarOpen);
         
-        // Закрываем панель друзей если открыта
         if (this.isFriendsOpen) {
             this.closeFriends();
         }
@@ -89,7 +130,6 @@ const app = {
         this.isFriendsOpen = !this.isFriendsOpen;
         friendsPanel.classList.toggle('active', this.isFriendsOpen);
         
-        // Закрываем боковую панель если открыта
         if (this.isSidebarOpen) {
             this.closeSidebar();
         }
@@ -108,10 +148,84 @@ const app = {
         this.closeSidebar();
     },
     
+    // Показать модальное окно метки
+    showLocationModal: function() {
+        const modal = document.getElementById('location-modal');
+        const locationInfo = document.getElementById('modal-location-info');
+        
+        if (this.tempLocation) {
+            locationInfo.textContent = `Широта: ${this.tempLocation.lat.toFixed(4)}, Долгота: ${this.tempLocation.lng.toFixed(4)}`;
+        } else {
+            const currentText = document.getElementById('current-location').textContent;
+            locationInfo.textContent = currentText !== 'Не выбрано' ? currentText : 'Не установлено';
+        }
+        
+        modal.style.display = 'flex';
+        this.closeSidebar();
+    },
+    
     // Показать модальное окно настроек
     showSettingsModal: function() {
         document.getElementById('settings-modal').style.display = 'flex';
+        document.getElementById('status-select').value = this.currentUser.status || 'online';
         this.closeSidebar();
+    },
+    
+    // Показать информацию о базе данных
+    showDatabaseInfo: function() {
+        this.showDatabaseTab('users');
+        document.getElementById('database-modal').style.display = 'flex';
+        this.closeSidebar();
+        this.loadDatabaseData();
+    },
+    
+    // Показать вкладку базы данных
+    showDatabaseTab: function(tabName) {
+        // Скрыть все вкладки
+        document.querySelectorAll('.tab-content').forEach(tab => {
+            tab.classList.remove('active');
+        });
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.classList.remove('active');
+        });
+        
+        // Показать выбранную вкладку
+        document.getElementById(tabName + '-tab').classList.add('active');
+        document.querySelector(`.tab-btn[onclick="app.showDatabaseTab('${tabName}')"]`).classList.add('active');
+    },
+    
+    // Загрузить данные базы данных
+    loadDatabaseData: function() {
+        try {
+            const data = database.getAllData();
+            
+            // Пользователи
+            let usersHtml = '<table><tr><th>ID</th><th>Имя</th><th>Email</th><th>Статус</th><th>Создан</th></tr>';
+            data.users.forEach(user => {
+                usersHtml += `<tr><td>${user.id}</td><td>${user.name}</td><td>${user.email}</td><td>${user.status}</td><td>${new Date(user.created_at).toLocaleString()}</td></tr>`;
+            });
+            usersHtml += '</table>';
+            document.getElementById('users-table').innerHTML = usersHtml;
+            
+            // Друзья
+            let friendsHtml = '<table><tr><th>ID</th><th>User ID</th><th>Friend ID</th><th>Создан</th></tr>';
+            data.friends.forEach(friend => {
+                friendsHtml += `<tr><td>${friend.id}</td><td>${friend.user_id}</td><td>${friend.friend_id}</td><td>${new Date(friend.created_at).toLocaleString()}</td></tr>`;
+            });
+            friendsHtml += '</table>';
+            document.getElementById('friends-table').innerHTML = friendsHtml;
+            
+            // Метки
+            let locationsHtml = '<table><tr><th>ID</th><th>User ID</th><th>Широта</th><th>Долгота</th><th>Видимость</th><th>Обновлено</th></tr>';
+            data.locations.forEach(location => {
+                locationsHtml += `<tr><td>${location.id}</td><td>${location.user_id}</td><td>${location.lat}</td><td>${location.lng}</td><td>${location.visibility}</td><td>${new Date(location.updated_at).toLocaleString()}</td></tr>`;
+            });
+            locationsHtml += '</table>';
+            document.getElementById('locations-table').innerHTML = locationsHtml;
+            
+        } catch (error) {
+            console.error('Ошибка загрузки данных БД:', error);
+        }
     },
     
     // Закрыть модальное окно
@@ -121,34 +235,96 @@ const app = {
     
     // Добавление друга
     addFriend: function() {
-        const name = document.getElementById('friend-name').value;
-        const email = document.getElementById('friend-email').value;
+        const email = document.getElementById('friend-email').value.trim();
         
-        if (name && email) {
-            const newFriend = {
-                id: Date.now(),
-                name,
-                email,
-                status: 'offline',
-                location: null
-            };
+        if (!email) {
+            alert('Пожалуйста, введите email друга');
+            return;
+        }
+        
+        if (email === this.currentUser.email) {
+            alert('Нельзя добавить самого себя в друзья');
+            return;
+        }
+        
+        try {
+            const friend = database.getUserByEmail(email);
+            if (!friend) {
+                alert('Пользователь с таким email не найден');
+                return;
+            }
             
-            this.friends.push(newFriend);
-            localStorage.setItem('friends', JSON.stringify(this.friends));
+            database.addFriend(this.currentUser.id, friend.id);
+            
+            // Обновляем список друзей
+            this.friends = database.getFriends(this.currentUser.id);
             this.renderFriends();
             
-            document.getElementById('friend-name').value = '';
+            // Обновляем метки друзей на карте
+            const friendsLocations = database.getFriendsLocations(this.currentUser.id);
+            mapModule.showFriendsLocations(friendsLocations);
+            
             document.getElementById('friend-email').value = '';
             this.closeModal('add-friend-modal');
             
-            alert(`Друг ${name} добавлен!`);
-        } else {
-            alert('Пожалуйста, заполните все поля');
+            alert(`Друг ${friend.name} добавлен!`);
+        } catch (error) {
+            console.error('Ошибка добавления друга:', error);
+            alert(error.message || 'Ошибка добавления друга');
+        }
+    },
+    
+    // Сохранение метки
+    saveLocation: function() {
+        if (!this.tempLocation && document.getElementById('current-location').textContent === 'Не выбрано') {
+            alert('Сначала выберите местоположение на карте');
+            return;
+        }
+        
+        const location = this.tempLocation || database.getLocation(this.currentUser.id);
+        if (!location) {
+            alert('Сначала выберите местоположение на карте');
+            return;
+        }
+        
+        const visibility = document.getElementById('location-visibility').value;
+        
+        try {
+            database.saveLocation(this.currentUser.id, {
+                lat: location.lat,
+                lng: location.lng,
+                visibility: visibility
+            });
+            
+            this.displayUserLocation({ lat: location.lat, lng: location.lng, visibility: visibility });
+            this.tempLocation = null;
+            this.closeModal('location-modal');
+            
+            alert('Метка успешно сохранена!');
+        } catch (error) {
+            console.error('Ошибка сохранения метки:', error);
+            alert('Ошибка сохранения метки');
+        }
+    },
+    
+    // Очистка метки
+    clearLocation: function() {
+        try {
+            database.deleteLocation(this.currentUser.id);
+            mapModule.clearUserLocation();
+            this.closeModal('location-modal');
+            alert('Метка удалена!');
+        } catch (error) {
+            console.error('Ошибка удаления метки:', error);
+            alert('Ошибка удаления метки');
         }
     },
     
     // Сохранение настроек
     saveSettings: function() {
+        const status = document.getElementById('status-select').value;
+        
+        this.updateUserStatus(status);
         alert('Настройки сохранены!');
         this.closeModal('settings-modal');
     }

@@ -285,6 +285,16 @@ body {
     font-size: 14px;
     opacity: 0.9;
     word-break: break-all;
+    margin-bottom: 10px;
+}
+
+.btn-small {
+    padding: 8px 15px;
+    font-size: 14px;
+    width: auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
 }
 
 /* МОДАЛЬНЫЕ ОКНА */
@@ -371,9 +381,24 @@ body {
     color: white;
 }
 
+.btn-secondary {
+    background: rgba(255, 255, 255, 0.1);
+    color: var(--light);
+    border: 1px solid rgba(255, 46, 99, 0.3);
+}
+
 .btn:hover {
     transform: translateY(-2px);
     box-shadow: 0 5px 15px rgba(255, 46, 99, 0.4);
+}
+
+.button-group {
+    display: flex;
+    gap: 10px;
+}
+
+.button-group .btn {
+    width: 50%;
 }
 
 /* АДАПТИВНОСТЬ */
@@ -393,5 +418,13 @@ body {
         right: 10px;
         bottom: 10px;
         padding: 12px;
+    }
+    
+    .button-group {
+        flex-direction: column;
+    }
+    
+    .button-group .btn {
+        width: 100%;
     }
 }

@@ -1,3 +1,4 @@
+
 // Модуль аутентификации
 const auth = {
     // Показать форму регистрации
@@ -14,49 +15,62 @@ const auth = {
     
     // Функция входа
     login: function() {
-        const email = document.getElementById('login-email').value;
-        const password = document.getElementById('login-password').value;
+        const email = document.getElementById('login-email').value.trim();
+        const password = document.getElementById('login-password').value.trim();
         
-        if (email && password) {
-            const users = JSON.parse(localStorage.getItem('users') || '[]');
-            const user = users.find(u => u.email === email && u.password === password);
+        if (!email || !password) {
+            alert('Пожалуйста, заполните все поля');
+            return;
+        }
+        
+        try {
+            const user = database.getUserByEmail(email);
             
-            if (user) {
+            if (user && user.password === password) {
                 app.currentUser = user;
                 localStorage.setItem('currentUser', JSON.stringify(app.currentUser));
                 app.initApp();
             } else {
                 alert('Неверный email или пароль');
             }
-        } else {
-            alert('Пожалуйста, заполните все поля');
+        } catch (error) {
+            console.error('Ошибка входа:', error);
+            alert('Ошибка входа. Попробуйте еще раз.');
         }
     },
     
     // Функция регистрации
     register: function() {
-        const name = document.getElementById('register-name').value;
-        const email = document.getElementById('register-email').value;
-        const password = document.getElementById('register-password').value;
+        const name = document.getElementById('register-name').value.trim();
+        const email = document.getElementById('register-email').value.trim();
+        const password = document.getElementById('register-password').value.trim();
         
-        if (name && email && password) {
-            const users = JSON.parse(localStorage.getItem('users') || '[]');
+        if (!name || !email || !password) {
+            alert('Пожалуйста, заполните все поля');
+            return;
+        }
+        
+        if (password.length < 4) {
+            alert('Пароль должен содержать минимум 4 символа');
+            return;
+        }
+        
+        try {
+            const userId = database.addUser({ 
+                name: name, 
+                email: email, 
+                password: password,
+                status: 'online'
+            });
             
-            if (users.some(u => u.email === email)) {
-                alert('Пользователь с таким email уже существует');
-                return;
-            }
-            
-            const newUser = { name, email, password };
-            users.push(newUser);
-            localStorage.setItem('users', JSON.stringify(users));
-            
+            const newUser = database.getUserById(userId);
             app.currentUser = newUser;
             localStorage.setItem('currentUser', JSON.stringify(app.currentUser));
             
             app.initApp();
-        } else {
-            alert('Пожалуйста, заполните все поля');
+        } catch (error) {
+            console.error('Ошибка регистрации:', error);
+            alert(error.message || 'Ошибка регистрации. Попробуйте еще раз.');
         }
     },
     
@@ -66,5 +80,11 @@ const auth = {
         localStorage.removeItem('currentUser');
         document.getElementById('auth-page').style.display = 'block';
         document.getElementById('app-page').style.display = 'none';
+        
+        // Очищаем карту
+        if (mapModule.map) {
+            mapModule.map.remove();
+            mapModule.map = null;
+        }
     }
 };
