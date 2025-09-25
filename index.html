@@ -1,9 +1,10 @@
+
 <!DOCTYPE html>
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FriendMap - Карта друзей</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>oxsi.map - friend map</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="css/auth.css">
@@ -15,7 +16,7 @@
         <div class="auth-container">
             <div class="auth-logo">
                 <i class="fas fa-location-dot"></i>
-                <h1>FriendMap</h1>
+                <h1>oxsi.map</h1>
             </div>
             
             <div id="login-form" class="auth-form">
@@ -60,7 +61,18 @@
     <div id="app-page">
         <div id="map"></div>
         
-        <div class="app-sidebar">
+        <!-- Мобильное меню -->
+        <div class="mobile-menu">
+            <button class="mobile-menu-btn" onclick="app.toggleSidebar()">
+                <i class="fas fa-bars"></i>
+            </button>
+            <div class="mobile-title">oxsi.map</div>
+            <button class="mobile-menu-btn" onclick="app.toggleFriends()">
+                <i class="fas fa-users"></i>
+            </button>
+        </div>
+        
+        <div class="app-sidebar mobile-sidebar">
             <div class="user-info">
                 <div class="user-avatar" id="user-avatar">U</div>
                 <div class="user-details">
@@ -70,6 +82,9 @@
                         <span>В сети</span>
                     </div>
                 </div>
+                <button class="close-sidebar" onclick="app.closeSidebar()">
+                    <i class="fas fa-times"></i>
+                </button>
             </div>
             
             <div class="sidebar-actions">
@@ -85,16 +100,18 @@
             </div>
         </div>
         
-        <div class="friends-panel">
-            <h3>Мои друзья</h3>
+        <div class="friends-panel mobile-friends">
+            <div class="friends-header">
+                <h3>Мои друзья</h3>
+                <button class="close-friends" onclick="app.closeFriends()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
             <div class="friends-list" id="friends-list">
                 <!-- Друзья будут добавляться здесь -->
             </div>
         </div>
         
-        <div class="location-selector">
-            <h3>Ваше местоположение</h3>
-            <p>Кликните на карте, чтобы установить ваше местоположение</p>
             <div id="current-location">Не выбрано</div>
         </div>
     </div>

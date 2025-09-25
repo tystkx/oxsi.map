@@ -1,3 +1,4 @@
+
 // Модуль карты
 const mapModule = {
     map: null,
@@ -35,6 +36,10 @@ const mapModule = {
                 }
             );
         }
+        
+        // Оптимизация для мобильных устройств
+        this.map.touchZoom.enable();
+        this.map.doubleClickZoom.disable();
     },
     
     // Установка местоположения пользователя
@@ -69,6 +74,8 @@ const mapModule = {
                 .addTo(this.map)
                 .bindPopup(`<b>${friend.name}</b><br>${this.getStatusText(friend.status)}`)
                 .openPopup();
+        } else {
+            alert(`У друга ${friend.name} не установлено местоположение`);
         }
     },
     

@@ -1,7 +1,10 @@
+
 // Основной модуль приложения
 const app = {
     currentUser: null,
     friends: [],
+    isSidebarOpen: false,
+    isFriendsOpen: false,
     
     // Инициализация приложения после входа
     initApp: function() {
@@ -26,12 +29,8 @@ const app = {
             this.friends = JSON.parse(savedFriends);
             this.renderFriends();
         } else {
-            // Добавляем демо-друзей при первом запуске
-            this.friends = [
-                {id: 1, name: "Алексей", email: "alex@example.com", status: "online", location: {lat: 55.75, lng: 37.60}},
-                {id: 2, name: "Мария", email: "maria@example.com", status: "offline", location: {lat: 55.76, lng: 37.64}},
-                {id: 3, name: "Дмитрий", email: "dmitry@example.com", status: "away", location: {lat: 55.74, lng: 37.58}}
-            ];
+            // Начинаем с пустого списка друзей
+            this.friends = [];
             localStorage.setItem('friends', JSON.stringify(this.friends));
             this.renderFriends();
         }
@@ -43,7 +42,7 @@ const app = {
         friendsList.innerHTML = '';
         
         if (this.friends.length === 0) {
-            friendsList.innerHTML = '<p style="text-align: center; opacity: 0.7;">У вас пока нет друзей</p>';
+            friendsList.innerHTML = '<p style="text-align: center; opacity: 0.7; padding: 20px;">У вас пока нет друзей</p>';
             return;
         }
         
@@ -59,19 +58,60 @@ const app = {
             `;
             friendItem.addEventListener('click', () => {
                 mapModule.showFriendLocation(friend);
+                this.closeFriends();
             });
             friendsList.appendChild(friendItem);
         });
     },
     
+    // Переключение боковой панели
+    toggleSidebar: function() {
+        const sidebar = document.querySelector('.app-sidebar');
+        this.isSidebarOpen = !this.isSidebarOpen;
+        sidebar.classList.toggle('active', this.isSidebarOpen);
+        
+        // Закрываем панель друзей если открыта
+        if (this.isFriendsOpen) {
+            this.closeFriends();
+        }
+    },
+    
+    // Закрытие боковой панели
+    closeSidebar: function() {
+        const sidebar = document.querySelector('.app-sidebar');
+        sidebar.classList.remove('active');
+        this.isSidebarOpen = false;
+    },
+    
+    // Переключение панели друзей
+    toggleFriends: function() {
+        const friendsPanel = document.querySelector('.friends-panel');
+        this.isFriendsOpen = !this.isFriendsOpen;
+        friendsPanel.classList.toggle('active', this.isFriendsOpen);
+        
+        // Закрываем боковую панель если открыта
+        if (this.isSidebarOpen) {
+            this.closeSidebar();
+        }
+    },
+    
+    // Закрытие панели друзей
+    closeFriends: function() {
+        const friendsPanel = document.querySelector('.friends-panel');
+        friendsPanel.classList.remove('active');
+        this.isFriendsOpen = false;
+    },
+    
     // Показать модальное окно добавления друга
     showAddFriendModal: function() {
         document.getElementById('add-friend-modal').style.display = 'flex';
+        this.closeSidebar();
     },
     
     // Показать модальное окно настроек
     showSettingsModal: function() {
         document.getElementById('settings-modal').style.display = 'flex';
+        this.closeSidebar();
     },
     
     // Закрыть модальное окно
